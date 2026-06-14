@@ -5,3 +5,4 @@ opencv-python>=4.5.0
 numpy>=1.21.0
 PyYAML>=6.0
 kagglehub>=0.3.0
+ultralytics==8.4.67
