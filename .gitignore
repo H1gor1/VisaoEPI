@@ -1,0 +1,26 @@
+# IDE
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# YOLOv5 clone (~100MB, gerado pelo train.py)
+ppe_detector/yolov5_repo/
+
+# Dataset baixado pelo kagglehub (2GB)
+ppe_detector/dataset/dataset.yaml
+
+# Modelo base COCO (baixado automaticamente)
+yolov5s.pt
+
+# Artefatos de treino (graficos, checkpoints)
+ppe_detector/models/exp/
+
+# Arquivos gerados em execucao
+resultado.jpg
+ppe_detector/output_video.avi
+
+# Outros
+models.zip
