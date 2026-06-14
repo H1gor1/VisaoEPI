@@ -1,104 +1,55 @@
 # PPE Detector
 
-Detecção de Equipamentos de Proteção Individual (EPIs) com YOLOv5 e OpenCV.
-
-Baseado no artigo *Nath et al. (2020) — "Deep learning for site safety: Real-time detection of personal protective equipment"*, Automation in Construction.
+Trabalho de Visao Computacional - Deteccao de EPIs com YOLOv5
 
 ## Dataset
 
-8 classes do [Kaggle](https://www.kaggle.com/datasets/anuragraj03/ppe-detection-m):
+8 classes do Kaggle (anuragraj03/ppe-detection-m):
 
-| Id | Classe | Significado |
-|----|--------|-------------|
-| 0 | no-safety-glove | sem luvas |
-| 1 | no-safety-helmet | sem capacete |
-| 2 | no-safety-shoes | sem calçado |
-| 3 | no-welding-glass | sem óculos de solda |
-| 4 | safety-glove | com luvas |
-| 5 | safety-helmet | com capacete |
-| 6 | safety-shoes | com calçado |
-| 7 | welding-glass | com óculos de solda |
+0 - no-safety-glove
+1 - no-safety-helmet
+2 - no-safety-shoes
+3 - no-welding-glass
+4 - safety-glove
+5 - safety-helmet
+6 - safety-shoes
+7 - welding-glass
 
-## Instalação
+## Como usar
 
-```bash
-git clone https://github.com/H1gor1/VisaoEPI.git
-cd VisaoEPI
-pip install -r requirements.txt
-```
+Instalar dependencias:
 
-## Treinamento
+    pip install -r requirements.txt
 
-```bash
-python ppe_detector/train/train.py
-```
+Treinar o modelo:
 
-Parâmetros opcionais:
+    python ppe_detector/train/train.py
 
-```bash
-python ppe_detector/train/train.py --epochs 100 --batch 8 --weights yolov5m.pt
-```
+O dataset eh baixado automaticamente. O modelo treinado vai pra ppe_detector/models/best.pt.
 
-| Argumento | Padrão | Descrição |
-|-----------|--------|-----------|
-| `--epochs` | 50 | Épocas de treino |
-| `--batch` | 16 | Tamanho do batch (reduza se faltar VRAM) |
-| `--img` | 640 | Resolução da imagem |
-| `--weights` | yolov5s.pt | Modelo base (s=small, m=medium, l=large) |
+Testar com imagem:
 
-O script baixa o dataset do Kaggle automaticamente, clona o YOLOv5, gera o `dataset.yaml` e treina.
-O modelo final é salvo em `ppe_detector/models/best.pt`.
+    python ppe_detector/run_image.py
+    python ppe_detector/run_image.py foto.jpg
 
-## Execução
+Testar com video/webcam:
 
-### Imagem
+    python ppe_detector/run_video.py
+    python ppe_detector/run_video.py video.mp4
 
-```bash
-python ppe_detector/run_image.py                       # usa test_images/
-python ppe_detector/run_image.py caminho/da/foto.jpg   # imagem específica
-```
+Apertar 'q' pra sair do video.
 
-### Vídeo / Webcam
+## Thresholds
 
-```bash
-python ppe_detector/run_video.py            # webcam
-python ppe_detector/run_video.py video.mp4  # arquivo
-```
+Editar ppe_detector/config.py:
 
-Pressione `q` para sair do vídeo.
+    CONFIDENCE_THRESHOLD = 0.25
+    IOU_THRESHOLD = 0.45
 
-### Ajuste de thresholds
+## Treino com mais epochs ou outro modelo
 
-Edite `ppe_detector/config.py`:
+    python ppe_detector/train/train.py --epochs 100 --batch 8 --weights yolov5m.pt
 
-```python
-CONFIDENCE_THRESHOLD = 0.25   # confiança mínima (menor = mais detecções)
-IOU_THRESHOLD = 0.45          # sobreposição máxima para NMS
-```
+## Resultados
 
-## Estrutura
-
-```
-ppe_detector/
-├── config.py           # paths, classes, thresholds, cores
-├── detector.py         # PPEDetector (inferência YOLOv5)
-├── run_image.py        # pipeline para imagem estática
-├── run_video.py        # pipeline para vídeo/webcam
-├── train/
-│   └── train.py        # download dataset + treino YOLOv5
-├── models/
-│   └── best.pt         # modelo treinado
-└── test_images/        # imagens de teste
-```
-
-## Resultados do treino
-
-| Métrica | Valor |
-|---------|-------|
-| Modelo | YOLOv5s |
-| mAP@0.5 | 0.701 |
-| Épocas | 50 |
-| Imagens | ~15K |
-
-Melhores classes: safety-glove (0.88), safety-helmet (0.85).
-Piores classes: no-safety-shoes (0.53), no-welding-glass (0.51).
+YOLOv5s, 50 epochs, mAP@0.5 = 0.701

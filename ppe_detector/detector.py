@@ -35,10 +35,6 @@ def _resolve_weights(filename):
 
 
 class PPEDetector:
-    """
-    Detector YOLOv5 para EPIs.
-    Pre-processamento e inferencia identicos ao detect.py oficial.
-    """
 
     def __init__(self, model_path, confidence=0.5, iou_thres=0.45, device=None):
         self.confidence = confidence

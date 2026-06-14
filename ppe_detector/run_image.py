@@ -1,11 +1,3 @@
-"""
-Detecta EPIs em uma imagem.
-
-Uso:
-    python run_image.py                        # primeira imagem de test_images/
-    python run_image.py caminho/da/imagem.jpg  # imagem especifica
-"""
-
 import sys
 import os
 import cv2

@@ -1,11 +1,3 @@
-"""
-Detecta EPIs em video ou webcam.
-
-Uso:
-    python run_video.py           # webcam
-    python run_video.py video.mp4 # arquivo
-"""
-
 import sys
 import os
 import time

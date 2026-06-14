@@ -1,28 +1,14 @@
-"""
-Treinamento do YOLOv5 com o dataset de EPIs.
-
-Requisitos:
-    - Conta no Kaggle (para baixar o dataset)
-    - kagglehub instalado (pip install kagglehub)
-
-Uso:
-    python train.py                        # treino padrao (50 epochs)
-    python train.py --epochs 30 --batch 8  # treino customizado
-"""
-
 import os
 import sys
 import shutil
 import argparse
 import subprocess
 
-# permite importar config mesmo rodando de dentro de train/
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
 
 def download_dataset():
-    """Baixa o dataset do Kaggle usando kagglehub."""
     import kagglehub
 
     print("[train] Baixando dataset PPE do Kaggle...")
@@ -32,7 +18,6 @@ def download_dataset():
 
 
 def explore(dataset_path):
-    """Explora a estrutura de pastas do dataset para achar images/ e labels/."""
     print("[train] Explorando estrutura do dataset...")
 
     info = {"images_train": None, "labels_train": None,
@@ -56,10 +41,8 @@ def explore(dataset_path):
             elif "labels" in base:
                 info["labels_val"] = root
 
-    # fallback: estrutura plana comum
     for split in ["train", "valid", "test"]:
         for kind in ["images", "labels"]:
-            key = f"{kind}_{split}" if split != "valid" else f"{kind}_val"
             if split == "valid":
                 key = f"{kind}_val"
             else:
@@ -75,15 +58,11 @@ def explore(dataset_path):
 
 
 def create_yaml(dataset_path, info):
-    """Gera dataset.yaml no padrao YOLOv5 com paths absolutos corrigidos."""
-    # O yaml original do Kaggle tem paths do Windows (D:\...), entao
-    #     # SEMPRE geramos um novo com os caminhos corretos desta maquina.
     os.makedirs(config.DATASET_DIR, exist_ok=True)
 
-    # Determina a raiz real do dataset (pasta que contem train/ e valid/)
     root = info["images_train"]
     if root:
-        root = os.path.dirname(os.path.dirname(root))  # sobe 2 niveis: images/ -> train/ -> raiz
+        root = os.path.dirname(os.path.dirname(root))
     else:
         root = dataset_path
 
@@ -106,7 +85,6 @@ def create_yaml(dataset_path, info):
 
 
 def clone_yolov5(base_dir):
-    """Clona o repositorio oficial YOLOv5 se ainda nao existir."""
     repo_dir = os.path.join(base_dir, "yolov5_repo")
 
     if os.path.isdir(repo_dir):
@@ -132,7 +110,6 @@ def clone_yolov5(base_dir):
 
 
 def train(yolov5_dir, data_yaml, epochs, batch, img_size, weights):
-    """Executa o treinamento."""
     train_script = os.path.join(yolov5_dir, "train.py")
 
     cmd = [
@@ -152,7 +129,6 @@ def train(yolov5_dir, data_yaml, epochs, batch, img_size, weights):
 
 
 def copy_best():
-    """Copia best.pt do diretorio de experimento para models/best.pt."""
     src = os.path.join(config.MODEL_DIR, "exp", "weights", "best.pt")
     if os.path.exists(src):
         shutil.copy(src, config.MODEL_PATH)
@@ -173,24 +149,15 @@ def main():
     print("  PPE Detector - Treinamento YOLOv5")
     print("=" * 50)
 
-    # 1. baixa dataset
     dataset_path = download_dataset()
-
-    # 2. explora estrutura
     info = explore(dataset_path)
-
-    # 3. cria dataset.yaml
     data_yaml = create_yaml(dataset_path, info)
-
-    # 4. clona YOLOv5
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     yolov5_dir = clone_yolov5(base)
 
-    # 5. treina
     print(f"\n[train] Iniciando treino: {args.epochs} epochs, batch {args.batch}, img {args.img}")
     train(yolov5_dir, data_yaml, args.epochs, args.batch, args.img, args.weights)
 
-    # 6. copia modelo final
     copy_best()
 
     print("\n[train] Treinamento concluido com sucesso!")
