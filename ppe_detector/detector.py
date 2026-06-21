@@ -3,7 +3,7 @@ import sys
 import torch
 import numpy as np
 
-_YOLOV5_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "yolov5_repo")
+_YOLOV5_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "yolo_repo")
 _BASE_DIR = os.path.dirname(os.path.dirname(_YOLOV5_DIR))
 
 if _YOLOV5_DIR not in sys.path:
@@ -35,6 +35,9 @@ def _resolve_weights(filename):
 
 
 class PPEDetector:
+
+    def using_gpu(self):
+        return self.device == "cuda"
 
     def __init__(self, model_path, confidence=0.5, iou_thres=0.45, device=None):
         self.confidence = confidence

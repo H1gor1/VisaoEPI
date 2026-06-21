@@ -2,9 +2,41 @@ import sys
 import os
 import time
 import cv2
+import numpy as np
 
 import config
 from detector import PPEDetector
+
+THRESHOLD=15
+MIN_PIXEL_RATIO=0.003
+
+class PreProcessing:
+    def __init__(self, ppe_detector: PPEDetector):
+        self.__detector = ppe_detector
+        self.__last_frame = None
+        self.__last_detections = None
+
+    def __has_significant_change(self, frame):
+        step=8
+        small_frame = frame[::step, ::step]                            # view, ~32K pixels
+        current_gray = cv2.cvtColor(small_frame, cv2.COLOR_BGR2GRAY)   # only on the small frame
+        current_gray = cv2.GaussianBlur(current_gray, (5, 5), 0)       # only on the small frame
+        if self.__last_frame is None:
+            self.__last_frame = current_gray
+            return True
+    
+        prev_gray = self.__last_frame
+        
+        diff = cv2.absdiff(current_gray, prev_gray)
+        self.__last_frame = current_gray
+        _, thresh = cv2.threshold(diff, THRESHOLD, 255, cv2.THRESH_BINARY)
+
+        return (np.count_nonzero(thresh) / thresh.size) > MIN_PIXEL_RATIO
+    
+    def detect(self, frame):
+        if self.__has_significant_change(frame):
+            self.__last_detections = self.__detector.detect(frame)
+        return self.__last_detections
 
 
 def main():
@@ -34,6 +66,8 @@ def main():
     )
 
     detector = PPEDetector(config.MODEL_PATH, config.CONFIDENCE_THRESHOLD, config.IOU_THRESHOLD)
+    if not detector.using_gpu():
+        detector = PreProcessing(detector)
 
     frame_count = 0
     t0 = time.time()
@@ -46,9 +80,9 @@ def main():
         if not ret:
             break
 
-        detections = detector.detect(frame)
-
-        for d in detections:
+        last_detections = detector.detect(frame)
+        
+        for d in last_detections:
             x1, y1, x2, y2 = d["bbox"]
             is_viol = d["class_id"] in config.VIOLATION_CLASSES
             color = config.COLOR_VIOLATION if is_viol else config.COLOR_SAFE
