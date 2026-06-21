@@ -1,21 +1,10 @@
 import os
 import shutil
-import yaml
 import argparse
 
-import kagglehub
 from ultralytics import YOLO
 
-CLASSES = [
-    "no-safety-glove",
-    "no-safety-helmet",
-    "no-safety-shoes",
-    "no-welding-glass",
-    "safety-glove",
-    "safety-helmet",
-    "safety-shoes",
-    "welding-glass",
-]
+from utils import create_yaml, download_dataset, explore
 
 MODEL_CHOICES = {
     "nano": "yolov8n.pt",
@@ -26,75 +15,6 @@ MODEL_CHOICES = {
 }
 
 OUTPUT_DIR = "/content/ppe_detector_models"
-
-
-def download_dataset():
-    print("[train] Baixando dataset PPE do Kaggle...")
-    path = kagglehub.dataset_download("anuragraj03/ppe-detection-m")
-    print(f"[train] Dataset em: {path}")
-    return path
-
-
-def explore(dataset_path):
-    print("[train] Explorando estrutura do dataset...")
-    info = {"images_train": None, "labels_train": None,
-            "images_val": None, "labels_val": None,
-            "images_test": None, "labels_test": None}
-
-    for root, dirs, files in os.walk(dataset_path):
-        base = root.lower()
-        if "train" in base:
-            if "images" in base:
-                info["images_train"] = root
-            elif "labels" in base:
-                info["labels_train"] = root
-        elif "valid" in base:
-            if "images" in base:
-                info["images_val"] = root
-            elif "labels" in base:
-                info["labels_val"] = root
-        elif "test" in base:
-            if "images" in base:
-                info["images_test"] = root
-            elif "labels" in base:
-                info["labels_test"] = root
-
-    for split in ["train", "valid", "test"]:
-        for kind in ["images", "labels"]:
-            key = f"{kind}_{split}"
-            if info.get(key) is None:
-                candidate = os.path.join(dataset_path, split, kind)
-                if os.path.isdir(candidate):
-                    info[key] = candidate
-
-    for k, v in info.items():
-        print(f"       {k}: {v}")
-    return info
-
-
-def create_yaml(dataset_path, info):
-    root = info["images_train"]
-    if root:
-        root = os.path.dirname(os.path.dirname(root))
-    else:
-        root = dataset_path
-
-    data = {
-        "path": root,
-        "train": "train/images",
-        "val": "valid/images",
-        "test": "test/images",
-        "nc": 8,
-        "names": CLASSES,
-    }
-
-    yaml_path = "/content/dataset.yaml"
-    with open(yaml_path, "w") as f:
-        yaml.dump(data, f, default_flow_style=False)
-
-    print(f"[train] dataset.yaml criado em: {yaml_path}")
-    return yaml_path
-
 
 def main():
     parser = argparse.ArgumentParser(description="Treinar YOLOv8 no dataset de EPIs (Google Colab)")

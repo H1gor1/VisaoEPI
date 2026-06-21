@@ -7,6 +7,7 @@ from ultralytics import YOLO
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
+from utils import create_yaml, download_dataset, explore
 
 MODEL_CHOICES = {
     "nano": "yolov8n.pt",
@@ -29,9 +30,9 @@ def main():
     weights = MODEL_CHOICES[args.model]
 
     if not os.path.exists(config.DATASET_YAML):
-        print(f"[erro] dataset.yaml nao encontrado em: {config.DATASET_YAML}")
-        print("[erro] Execute primeiro o train.py (YOLOv5) para baixar o dataset")
-        sys.exit(1)
+        dataset_fp = download_dataset()
+        info = explore(dataset_fp)
+        create_yaml(config.DATASET_DIR, info)
 
     print("=" * 50)
     print("  PPE Detector - Treinamento YOLOv8 (Local)")
@@ -54,7 +55,7 @@ def main():
         project=config.MODEL_DIR,
         name="yolov8_train",
         exist_ok=True,
-        device=0,
+        device=os.getenv("DEVICE") or 0, # falls back to GPU if no device was specified via environment variable
         workers=4,
         pretrained=True,
         optimizer="auto",
