@@ -4,6 +4,9 @@ from ultralytics import YOLO
 
 class PPEDetector:
 
+    def using_gpu(self):
+        return self.device == "cuda"
+
     def __init__(self, model_path, confidence=0.5, iou_thres=0.45, device=None):
         self.confidence = confidence
         self.iou_thres = iou_thres
