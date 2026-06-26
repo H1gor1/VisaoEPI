@@ -24,3 +24,6 @@ ppe_detector/output_video.avi
 
 # Outros
 models.zip
+
+*dataset*
+*.mp4
