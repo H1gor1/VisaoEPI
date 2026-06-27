@@ -10,6 +10,18 @@ from vector_db import MemVecDb, VectorDb
 from feature_extractor import Extractor
 
 
+class WorkerTracker:
+
+    T = 10 
+
+    def __init__(self):
+        self._worker_last_frame: DefaultDict[int, int] = DefaultDict(lambda: 0)
+
+    def already_present(self, worker_id: int, current_frame: int) -> bool:
+        in_frame = self._worker_last_frame[worker_id] >= current_frame-self.T
+        self._worker_last_frame[worker_id] = current_frame
+        return in_frame
+
 def load_stream():
     source = sys.argv[1] if len(sys.argv) > 1 else "webcam"
 
@@ -73,7 +85,7 @@ def main():
     )
     person_detector = PersonDetector()
     extractor = Extractor()
-    frame_id_mapping = DefaultDict(lambda: 0)
+    worker_tracker = WorkerTracker()
 
     frame_count = 0
     t0 = time.time()
@@ -94,14 +106,16 @@ def main():
                 px1, py1, px2, py2 = person.bbox
                 p_vec = extractor.extract_embedding(frame[py1:py2, px1:px2])
                 worker_id = db.create_or_update(p_vec, frame_count)
-                in_frame = frame_id_mapping[worker_id] - 1 == frame_count
+                in_frame = worker_tracker.already_present(worker_id, frame_count)
 
                 for ppe in ppes:
 
+                    if not ppe.is_violation():
+                        continue
                     if not person.contains(ppe):
                         continue
 
-                    if ppe.is_violation() and not in_frame:
+                    if not in_frame:
                         count_violation_key = f"count_{ppe.cls_id}"
                         db.update(
                             worker_id,
