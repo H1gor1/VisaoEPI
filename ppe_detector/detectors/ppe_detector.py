@@ -32,11 +32,13 @@ class PPEDetector:
                 confs = result.boxes.conf.cpu().numpy()
                 clss = result.boxes.cls.cpu().numpy().astype(int)
                 for (x1, y1, x2, y2), conf, cls_id in zip(boxes, confs, clss):
-                    detections.append({
-                        "class_id": int(cls_id),
-                        "class_name": self.names[int(cls_id)],
-                        "confidence": float(conf),
-                        "bbox": (int(x1), int(y1), int(x2), int(y2)),
-                    })
+                    detections.append(
+                        {
+                            "class_id": int(cls_id),
+                            "class_name": self.names[int(cls_id)],
+                            "confidence": float(conf),
+                            "bbox": (int(x1), int(y1), int(x2), int(y2)),
+                        }
+                    )
 
         return detections
