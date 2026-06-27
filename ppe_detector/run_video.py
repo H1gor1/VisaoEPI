@@ -6,7 +6,7 @@ import cv2
 
 import config
 from detectors import PPEDetector, PersonDetector
-from vector_db import MemVecDb
+from vector_db import MemVecDb, VectorDb
 from feature_extractor import Extractor
 
 
@@ -28,53 +28,12 @@ def load_stream():
         sys.exit(1)
     return cap
 
-
-frame_id_mapping: DefaultDict[int, int] = DefaultDict(lambda: 0)
-
-def process_frame(
-    frame_id: int,
-    frame: cv2.typing.MatLike,
-    db: MemVecDb,
-    detector: PPEDetector,
-    person_detector: PersonDetector,
-    extractor: Extractor
-):
-    detections = person_detector.detect(frame)
-
-    for person_crop in detections:
-        ppe_detections = detector.detect(person_crop.image)
-        p_vec = extractor.extract_embedding(person_crop.image)
-        worker_id = db.create_or_update(p_vec, frame_id)
-        in_frame = frame_id_mapping[worker_id] == frame_id-1
-        frame_id_mapping[worker_id]=frame_id
-
-
-        for d in ppe_detections:
-            x1, y1, x2, y2 = person_crop.bbox
-            x1c, y1c, x2c, y2c = d["bbox"]
-            is_viol = d["class_id"] in config.VIOLATION_CLASSES
-            color = config.COLOR_VIOLATION if is_viol else config.COLOR_SAFE
-            if is_viol and in_frame:
-                count_violation_key = f"count_{d["class_id"]}"
-                db.update(
-                    worker_id,
-                    {
-                        count_violation_key: db.get_data(worker_id, count_violation_key, 0) + 1
-                    }
-                )
-            else:
-                color = config.COLOR_SAFE
-            cv2.rectangle(frame, (x1+x1c, y1+y1c), (x2+x2c, y2+y2c), color, 2)
-            cv2.putText(
-                frame,
-                d["class_name"],
-                (x1+x1c,  y1+y1c - 8),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                color,
-                2,
-            )
-
+def summarize_findings(db: VectorDb):
+    total_workers = db.total_workers()
+    for w_id in range(total_workers):
+        print(f"Worker id: {w_id}")
+        print(db.get_all_data(w_id))
+        print()
 
 def main():
     cap = load_stream()
@@ -96,6 +55,7 @@ def main():
     )
     person_detector = PersonDetector()
     extractor = Extractor()
+    frame_id_mapping = DefaultDict(lambda: 0)
 
     frame_count = 0
     t0 = time.time()
@@ -109,7 +69,54 @@ def main():
             break
 
 
-        process_frame(frame_count, frame, db, detector, person_detector, extractor)
+        persons = person_detector.detect(frame)
+
+        for person_crop in persons:
+            ppe_detections = detector.detect(person_crop.image)
+            if len(ppe_detections) == 0:
+                continue
+            # save some perfomance because we do not extract the worker embedding when no violation was detect
+            p_vec = extractor.extract_embedding(person_crop.image)
+            worker_id = db.create_or_update(p_vec, frame_count)
+
+            in_frame = frame_id_mapping[worker_id] == frame_count-1
+            frame_id_mapping[worker_id]=frame_count
+
+
+            for d in ppe_detections:
+                x1, y1, x2, y2 = person_crop.bbox
+                x1c, y1c, x2c, y2c = d["bbox"]
+                is_viol = d["class_id"] in config.VIOLATION_CLASSES
+                color = config.COLOR_VIOLATION if is_viol else config.COLOR_SAFE
+                if is_viol and in_frame:
+                    count_violation_key = f"count_{d["class_id"]}"
+                    db.update(
+                        worker_id,
+                        {
+                            count_violation_key: db.get_data(worker_id, count_violation_key, 0) + 1
+                        }
+                    )
+                else:
+                    color = config.COLOR_SAFE
+                cv2.rectangle(frame, (x1+x1c, y1+y1c), (x1+x2c, y1+y2c), color, 2)
+                cv2.putText(
+                    frame,
+                    d["class_name"],
+                    (x1+x1c,  y1+y1c - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    color,
+                    2,
+                )
+                cv2.putText(
+                    frame,
+                    f"Worker id: {worker_id}",
+                    (x1+x1c,  y1+y1c - 20),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    color,
+                    2,
+                )
         out.write(frame)
         cv2.putText(
             frame,
@@ -135,6 +142,7 @@ def main():
     out.release()
     cv2.destroyAllWindows()
     print(f"\n{frame_count} frames. Salvo em: {config.VIDEO_OUTPUT_PATH}")
+    summarize_findings(db)
 
 
 if __name__ == "__main__":

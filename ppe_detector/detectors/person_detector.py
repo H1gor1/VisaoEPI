@@ -11,7 +11,7 @@ MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
 YOLO_WEIGHTS = os.path.join(MODEL_DIR, "yolov8n.pt")
 
 PERSON_CLASS = 0
-CONFIDENCE_THRESHOLD = 0.3
+CONFIDENCE_THRESHOLD = 0.6
 
 BoundingBox = tuple[int, int, int, int]
 

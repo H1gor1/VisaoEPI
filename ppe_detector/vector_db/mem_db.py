@@ -79,3 +79,6 @@ class MemVecDb(VectorDb):
 
     def update(self, worker_id: int, data: dict[str, Any]):
         self._worker_id_data[worker_id].update(data)
+
+    def get_all_data(self, worker_id: int) -> dict[str, Any]:
+        return self._worker_id_data[worker_id]

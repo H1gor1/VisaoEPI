@@ -32,3 +32,7 @@ class VectorDb(ABC):
     @abstractmethod
     def update(self, worker_id: int, data: dict[str, Any]):
         pass
+
+    @abstractmethod
+    def get_all_data(self, worker_id: int) -> dict[str, Any]:
+        pass
