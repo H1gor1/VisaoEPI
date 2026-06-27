@@ -1,6 +1,7 @@
 import torch
 from ultralytics import YOLO
 
+from .types import Detection, Coords
 
 class PPEDetector:
 
@@ -16,7 +17,7 @@ class PPEDetector:
         self.names = self.model.names
         print(f"[detector] Classes: {self.names}")
 
-    def detect(self, image):
+    def detect(self, image) -> list[Detection]:
         results = self.model(
             image,
             conf=self.confidence,
@@ -33,12 +34,12 @@ class PPEDetector:
                 clss = result.boxes.cls.cpu().numpy().astype(int)
                 for (x1, y1, x2, y2), conf, cls_id in zip(boxes, confs, clss):
                     detections.append(
-                        {
-                            "class_id": int(cls_id),
-                            "class_name": self.names[int(cls_id)],
-                            "confidence": float(conf),
-                            "bbox": (int(x1), int(y1), int(x2), int(y2)),
-                        }
+                        Detection(
+                            cls_id=int(cls_id),
+                            cls_name=self.names[int(cls_id)],
+                            confidence=float(conf),
+                            bbox=Coords(int(x1), int(y1), int(x2), int(y2)),
+                        )
                     )
 
         return detections

@@ -1,24 +1,17 @@
 import os
 
-from dataclasses import dataclass
-
 import numpy as np
 from numpy.typing import NDArray
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 
+from .types import Detection, Coords
+
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
 YOLO_WEIGHTS = os.path.join(MODEL_DIR, "yolov8n.pt")
 
 PERSON_CLASS = 0
-CONFIDENCE_THRESHOLD = 0.6
-
-BoundingBox = tuple[int, int, int, int]
-
-@dataclass(frozen=True)
-class PersonCrop:
-    image: NDArray[np.uint8]
-    bbox: tuple[int, int, int, int]
+CONFIDENCE_THRESHOLD = 0.4
 
 
 class PersonDetector:
@@ -30,38 +23,36 @@ class PersonDetector:
             print("[YOLO] Downloading yolov8n.pt...")
 
         self._model = YOLO(YOLO_WEIGHTS)
+        self.names = self._model.names
 
     def detect(
         self,
         frame: NDArray[np.uint8],
-    ) -> list[PersonCrop]:
+    ) -> list[Detection]:
 
         results: Results = self._model(
             frame,
             verbose=False,
             classes=[PERSON_CLASS],
             conf=CONFIDENCE_THRESHOLD,
-        )[0]
+        )
 
         people = []
+        for result in results:
+            
+            if result.boxes is not None:
+                boxes = result.boxes.xyxy.cpu().numpy()
+                confs = result.boxes.conf.cpu().numpy()
+                clss = result.boxes.cls.cpu().numpy().astype(int)
 
-        if results.boxes is not None:
-            h, w = frame.shape[:2]
-
-            for box in results.boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-
-                # clamp to image bounds (prevents invalid indexing)
-                x1 = max(0, x1)
-                y1 = max(0, y1)
-                x2 = min(w, x2)
-                y2 = min(h, y2)
-
-                crop = frame[y1:y2, x1:x2]
-                people.append(
-                    PersonCrop(
-                        crop, (x1, y1, x2, y2)
+                for (x1, y1, x2, y2), conf, cls_id in zip(boxes, confs, clss):
+                    people.append(
+                        Detection(
+                            cls_id=int(cls_id),
+                            cls_name=self.names[int(cls_id)],
+                            confidence=float(conf),
+                            bbox=Coords(int(x1), int(y1), int(x2), int(y2)),
+                        )
                     )
-                )
 
         return people

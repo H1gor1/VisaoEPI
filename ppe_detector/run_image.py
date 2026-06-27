@@ -3,7 +3,7 @@ import os
 import cv2
 
 import config
-from detector import PPEDetector
+from detectors import PPEDetector
 
 
 def main():

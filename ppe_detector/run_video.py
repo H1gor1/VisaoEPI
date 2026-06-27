@@ -28,12 +28,30 @@ def load_stream():
         sys.exit(1)
     return cap
 
+
 def summarize_findings(db: VectorDb):
     total_workers = db.total_workers()
     for w_id in range(total_workers):
         print(f"Worker id: {w_id}")
         print(db.get_all_data(w_id))
         print()
+
+
+def save_frame(
+    frame: cv2.typing.MatLike,
+    frame_id: int,
+    folder: str = "debug_frames",
+    prefix: str = "frame",
+):
+    """
+    It's useful for troubleshooting reasons, so we can save the frames and inspect them later
+    """
+    os.makedirs(folder, exist_ok=True)
+    filename = os.path.join(folder, f"{prefix}_{frame_id}.jpg")
+    cv2.imwrite(filename, frame)
+    print(f"Frame salvo em: {filename}")
+    return filename
+
 
 def main():
     cap = load_stream()
@@ -68,55 +86,64 @@ def main():
         if not ret:
             break
 
+        # if no person was detect, we can save some perfomance by not passing this frame over the ppe_detector
+        if (persons := person_detector.detect(frame)) and (
+            ppes := detector.detect(frame)
+        ):
+            for person in persons:
+                px1, py1, px2, py2 = person.bbox
+                p_vec = extractor.extract_embedding(frame[py1:py2, px1:px2])
+                worker_id = db.create_or_update(p_vec, frame_count)
+                in_frame = frame_id_mapping[worker_id] - 1 == frame_count
 
-        persons = person_detector.detect(frame)
+                for ppe in ppes:
 
-        for person_crop in persons:
-            ppe_detections = detector.detect(person_crop.image)
-            if len(ppe_detections) == 0:
-                continue
-            # save some perfomance because we do not extract the worker embedding when no violation was detect
-            p_vec = extractor.extract_embedding(person_crop.image)
-            worker_id = db.create_or_update(p_vec, frame_count)
+                    if not person.contains(ppe):
+                        continue
 
-            in_frame = frame_id_mapping[worker_id] == frame_count-1
-            frame_id_mapping[worker_id]=frame_count
+                    if ppe.is_violation() and not in_frame:
+                        count_violation_key = f"count_{ppe.cls_id}"
+                        db.update(
+                            worker_id,
+                            {
+                                count_violation_key: db.get_data(
+                                    worker_id, count_violation_key, 0
+                                )
+                                + 1
+                            },
+                        )
 
-
-            for d in ppe_detections:
-                x1, y1, x2, y2 = person_crop.bbox
-                x1c, y1c, x2c, y2c = d["bbox"]
-                is_viol = d["class_id"] in config.VIOLATION_CLASSES
-                color = config.COLOR_VIOLATION if is_viol else config.COLOR_SAFE
-                if is_viol and in_frame:
-                    count_violation_key = f"count_{d["class_id"]}"
-                    db.update(
-                        worker_id,
-                        {
-                            count_violation_key: db.get_data(worker_id, count_violation_key, 0) + 1
-                        }
+                    color = (
+                        config.COLOR_VIOLATION
+                        if ppe.is_violation()
+                        else config.COLOR_SAFE
                     )
-                else:
-                    color = config.COLOR_SAFE
-                cv2.rectangle(frame, (x1+x1c, y1+y1c), (x1+x2c, y1+y2c), color, 2)
-                cv2.putText(
-                    frame,
-                    d["class_name"],
-                    (x1+x1c,  y1+y1c - 8),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    color,
-                    2,
-                )
-                cv2.putText(
-                    frame,
-                    f"Worker id: {worker_id}",
-                    (x1+x1c,  y1+y1c - 20),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    color,
-                    2,
-                )
+                    cv2.rectangle(
+                        frame,
+                        (ppe.bbox.x1, ppe.bbox.y1),
+                        (ppe.bbox.x2, ppe.bbox.y2),
+                        color,
+                        2,
+                    )
+                    cv2.putText(
+                        frame,
+                        ppe.cls_name,
+                        (ppe.bbox.x1, ppe.bbox.y1 - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        color,
+                        2,
+                    )
+                    cv2.putText(
+                        frame,
+                        f"Worker id: {worker_id}",
+                        (person.bbox.x1, person.bbox.y1 - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        color,
+                        2,
+                    )
+
         out.write(frame)
         cv2.putText(
             frame,
@@ -131,8 +158,8 @@ def main():
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
-        
-        frame_count+=1
+
+        frame_count += 1
         if frame_count % 10 == 0:
             elapsed = time.time() - t0
             fps_disp = 10 / elapsed if elapsed > 0 else 0
