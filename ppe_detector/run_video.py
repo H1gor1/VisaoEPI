@@ -1,5 +1,4 @@
 import sys
-from typing import DefaultDict
 import os
 import time
 import cv2
@@ -11,16 +10,19 @@ from feature_extractor import Extractor
 
 
 class WorkerTracker:
+    def __init__(self, presence_window=10):
+        self.__presence_window = presence_window
+        self.__last_seen = {}
 
-    T = 10 
+    def already_present(self, worker_id: int, current_frame: int):
+        last = self.__last_seen.get(worker_id)
+        self.__last_seen[worker_id] = current_frame
 
-    def __init__(self):
-        self._worker_last_frame: DefaultDict[int, int] = DefaultDict(lambda: 0)
+        return (
+            last is not None
+            and current_frame - last <= self.__presence_window
+        )
 
-    def already_present(self, worker_id: int, current_frame: int) -> bool:
-        in_frame = self._worker_last_frame[worker_id] >= current_frame-self.T
-        self._worker_last_frame[worker_id] = current_frame
-        return in_frame
 
 def load_stream():
     source = sys.argv[1] if len(sys.argv) > 1 else "webcam"
